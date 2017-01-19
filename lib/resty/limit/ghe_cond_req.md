@@ -23,9 +23,9 @@ http {
 
 
                 if conditional and ngx.status == ngx.HTTP_NOT_MODIFIED then
-                    remaining, reset = lim:outgoing(key, false)
+                    remaining, reset = lim:outgoing(key, false, true)
                 elseif conditional and ngx.status != ngx.HTTP_NOT_MODIFIED then
-                    remaining, reset = lim:outgoing(key, true) 
+                    remaining, reset = lim:outgoing(key, true, true) 
 
 
                 ngx.header["X-RateLimit-Limit"] = "5000"

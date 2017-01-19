@@ -120,47 +120,51 @@ function _M.incoming(self, key, commit, conditional)
     return remaining, reset
 end
 
-function _M.outgoing(self, key, modified)
+function _M.outgoing(self, key, modified, commit)
     local dict = self.dict
     local limit = self.limit
     local window = self.window
     local now = ngx_time()
 
+    local remaining
+    local reset
 
+
+    -- v should always be non-nil?
     local v = dict:get(key)
-    if v and modified then
+    if v then
         if type(v) ~= "string" or #v ~= rec_size then
             return nil, "shdict abused by other users"
         end
         local rec = ffi_cast(const_rec_ptr_type, v)
         local ttl = tonumber(rec.reset) - now
 
-        if ttl > 0 then
+        if ttl > 0 and modified then
             reset = tonumber(rec.reset)
             remaining = tonumber(rec.remaining) - 1
-        else
-            reset = now + window
-            remaining = limit
-        end
-    elseif v and not modified then
-        if type(v) ~= "string" or #v ~= rec_size then
-            return nil, "shdict abused by other users"
-        end
-        local rec = ffi_cast(const_rec_ptr_type, v)
-        local ttl = tonumber(rec.reset) - now
-
-        --redundant when used with incoming?--
-        if ttl > 0 then
+        elseif ttl > 0 and not modified then
             reset = tonumber(rec.reset)
             remaining = tonumber(rec.remaining)
         else
             reset = now + window
             remaining = limit
         end
+    else
+        if modified then
+            remaining = limit - 1
+            reset = now + window
+        else
+            remaining = limit
+            reset = now + window
+        end
+    end
 
-    rec_cdata.remaining = remaining
-    rec_cdata.reset = reset
-    dict:set(key, ffi_str(rec_cdata, rec_size))
+
+    if commit then
+        rec_cdata.remaining = remaining
+        rec_cdata.reset = reset
+        dict:set(key, ffi_str(rec_cdata, rec_size))
+    end
 
     return remaining, reset
 end
